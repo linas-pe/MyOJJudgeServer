@@ -19,6 +19,7 @@
 #include <pen_utils/pen_profile.h>
 #include <pen_socket/pen_signal.h>
 #include <pen_socket/pen_event.h>
+#include <pen_json/pen_json.h>
 
 #include "server.h"
 
@@ -52,6 +53,7 @@ _init_profile(void)
         _i(local_port, g_local_port, "local bind port(default 0)")
         _s(log_info, __pen_log_filename, "log info file name(default NULL)")
         _s(log_err, __pen_err_filename, "log error file name(default NULL)")
+        _s(judge_workspace, workspace_judge, "Judge server workspace(default NULL)")
     };
     return pen_profile_init(_profile, opts, sizeof(opts) / sizeof(opts[0]));
 #undef _i
@@ -75,6 +77,7 @@ int main(int argc, char *argv[])
 
     ev = pen_event_init(3);
     pen_assert(ev != NULL, "event init failed.");
+    pen_assert2(pen_json_init());
     pen_assert2(pen_signal_init(ev));
     pen_assert2(pen_signal(SIGTERM, _on_signal));
     pen_assert2(pen_signal(SIGINT, _on_signal));
@@ -85,6 +88,7 @@ int main(int argc, char *argv[])
 
     pen_server_destroy();
     pen_signal_destroy();
+    pen_json_destroy();
     pen_event_destroy(ev);
     pen_log_destroy();
     return 0;

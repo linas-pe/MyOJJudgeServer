@@ -1,5 +1,7 @@
 set(LOCAL_FILES
     main.c
+    judge.c
+    result.c
     server.c
     server.h
     sys_info.c

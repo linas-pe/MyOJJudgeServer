@@ -6,6 +6,7 @@ INCLUDE (cmake/pen.cmake)
 pen_package_check("pen_utils")
 pen_package_check("pen_socket")
 pen_package_check("pen_http")
+pen_package_check("pen_json")
 
 add_subdirectory(source)
 

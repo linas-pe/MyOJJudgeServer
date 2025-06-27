@@ -17,18 +17,38 @@
  */
 #pragma once
 
+#include <pen_socket/pen_event.h>
 #include <pen_utils/pen_types.h>
 
 PEN_EXTERN_C_START
 
+typedef enum ResultCode {
+    PEN_JUDGE_SUCCESS,
+    PEN_JUDGE_DATA_ERROR,
+    PEN_JUDGE_COMPILE_ERROR,
+    PEN_JUDGE_CODE_END,
+} ResultCode;
+
 extern const char *g_unix_domain;
 extern const char *g_local_host;
 extern unsigned short g_local_port;
+extern const char *workspace_judge;
 
 PEN_WARN_UNUSED_RESULT
 PEN_NONNULL(1)
 bool pen_server_init(pen_event_t ev);
 void pen_server_destroy(void);
+
+PEN_WARN_UNUSED_RESULT
+bool init_judger();
+void destroy_judger();
+
+PEN_NONNULL(1)
+bool do_judge(pen_event_base_t *eb);
+
+PEN_NONNULL(1)
+PEN_WARN_UNUSED_RESULT
+bool do_judge_result(pen_event_base_t *eb, ResultCode code);
 
 PEN_EXTERN_C_END
 
