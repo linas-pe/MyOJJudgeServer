@@ -16,6 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "server.h"
+#include <fcntl.h>
+#include <dirent.h>
 #include <pen_utils/pen_string.h>
 #include <pen_json/pen_json.h>
 #include <pen_http/pen_http.h>
@@ -25,7 +27,9 @@ typedef struct JudgeData {
     pen_string_t case_id;
 } JudgeData;
 
-const char *workspace_judge = NULL;
+const char *judge_dir = NULL;
+const char *testcase_dir = NULL;
+int root_fd = -1;
 
 static bool
 _on_json_data(const char *str, pen_json_pos_t key, pen_json_pos_t val, void *user)
@@ -56,9 +60,70 @@ _on_json_data(const char *str, pen_json_pos_t key, pen_json_pos_t val, void *use
     return true;
 }
 
+static inline bool
+_write_src_file(JudgeData *data, const char *submission_id)
+{
+    // TODO src_data size
+    static char src_data[8192];
+    int fd, src_fd, len;
+    bool ret = false;
+
+    fd = openat(root_fd, submission_id, O_RDONLY | O_DIRECTORY);
+    if (fd == -1)
+        return false;
+    // TODO set read file with code type
+    src_fd = openat(fd, "main.c", O_RDWR | O_CREAT, 0600);
+    if (src_fd == -1)
+        goto end;
+    len = pen_unescape_string(&data->src, src_data);
+    if (write(src_fd, src_data, len) == (ssize_t)len)
+        ret = true;
+    close(src_fd);
+end:
+    close(fd);
+    return ret;
+}
+
+static inline bool
+_init_submission_env(JudgeData *data, const char *submission_id)
+{
+    if (mkdirat(root_fd, submission_id, 0700) != 0)
+        return false;
+
+    return _write_src_file(data, submission_id);
+}
+
+static inline void
+_destroy_submission_env(const char *submission_id)
+{
+    DIR *dir;
+    struct dirent *entry;
+
+    int fd = openat(root_fd, submission_id, O_RDONLY | O_DIRECTORY);
+    if (fd == -1)
+        goto end;
+    dir = fdopendir(fd);
+    if (dir == NULL) {
+        close(fd);
+        goto end;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0)
+            continue;
+        unlinkat(fd, entry->d_name, 0);
+    }
+    closedir(dir);
+end:
+    if (unlinkat(root_fd, submission_id, AT_REMOVEDIR) != 0) {
+        PEN_ERROR("clean submission env failed.");
+    }
+}
+
 bool
 do_judge(pen_event_base_t *eb)
 {
+    char submission_id[37] = {0x00};
     pen_json_parser_t parser;
     pen_string_t str;
     JudgeData data;
@@ -77,10 +142,17 @@ do_judge(pen_event_base_t *eb)
         goto end;
     }
 
-    printf("src: %.*s\ntest_case_id: %.*s\n",
+    pen_get_uuid(submission_id);
+    if (!_init_submission_env(&data, submission_id)) {
+        code = PEN_JUDGE_PERMISSION_ERROR;
+        goto end;
+    }
+
+    printf("submission_id: %s\nsrc: %.*s\ntest_case_id: %.*s\n", submission_id,
         (int)data.src.len_, data.src.str_, (int)data.case_id.len_, data.case_id.str_);
 
 end:
+    _destroy_submission_env(submission_id);
     pen_json_parser_destroy(&parser);
     return do_judge_result(eb, code);
 }
@@ -88,15 +160,23 @@ end:
 bool
 init_judger()
 {
-    if (workspace_judge == NULL)
+    if (testcase_dir == NULL || judge_dir == NULL || root_fd != -1)
         return false;
-    return (access(workspace_judge, R_OK) == 0 &&
-        access(workspace_judge, W_OK) == 0 &&
-        access(workspace_judge, X_OK) == 0);
+    if (!(access(judge_dir, R_OK) == 0 &&
+        access(judge_dir, W_OK) == 0 &&
+        access(judge_dir, X_OK) == 0))
+        return false;
+    if (!(access(testcase_dir, R_OK) == 0 &&
+        access(testcase_dir, X_OK) == 0))
+        return false;
+    root_fd = open(judge_dir, O_RDONLY | O_DIRECTORY);
+    return root_fd != -1;
 }
 
 void
 destroy_judger()
 {
+    close(root_fd);
+    root_fd = -1;
 }
 

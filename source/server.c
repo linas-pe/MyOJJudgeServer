@@ -83,6 +83,7 @@ error:
 bool
 pen_server_init(pen_event_t ev)
 {
+    srand(time(NULL));
     if (PEN_UNLIKELY(!init_judger()))
         return false;
     if (PEN_UNLIKELY(!init_sys_info()))
@@ -94,6 +95,7 @@ pen_server_init(pen_event_t ev)
     PEN_HTTP_POST_REGISTER(g_self.server_, /ping, ping);
     PEN_HTTP_POST_REGISTER(g_self.server_, /judge, judge);
     PEN_HTTP_POST_REGISTER(g_self.server_, /compile_spj, compile_spj);
+
     return true;
 }
 

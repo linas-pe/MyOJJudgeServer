@@ -49,11 +49,12 @@ _init_profile(void)
 
     pen_option_t opts[] = {
         _s(unix, g_unix_domain, "unix domain(default NULL)")
-        _s(local_host, g_local_host, "local bind host(default NULL)")
-        _i(local_port, g_local_port, "local bind port(default 0)")
+        _s(host, g_local_host, "local bind host(default NULL)")
+        _i(port, g_local_port, "local bind port(default 0)")
         _s(log_info, __pen_log_filename, "log info file name(default NULL)")
         _s(log_err, __pen_err_filename, "log error file name(default NULL)")
-        _s(judge_workspace, workspace_judge, "Judge server workspace(default NULL)")
+        _s(judge_dir, judge_dir, "Judge server workspace(default NULL)")
+        _s(testcase_dir, testcase_dir, "Test case dir(default NULL)")
     };
     return pen_profile_init(_profile, opts, sizeof(opts) / sizeof(opts[0]));
 #undef _i

@@ -23,12 +23,14 @@ static char *err_name[PEN_JUDGE_CODE_END] = {
     "null",
     "\"JudgeClientError\"",
     "\"JudgeClientError\"",
+    "\"JudgeClientError\"",
 };
 
 static char *err_msg[PEN_JUDGE_CODE_END] = {
     "success",
     "Request wrong data.",
     "Compile failed.",
+    "Permission error.",
 };
 
 

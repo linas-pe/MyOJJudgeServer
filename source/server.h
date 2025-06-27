@@ -26,13 +26,15 @@ typedef enum ResultCode {
     PEN_JUDGE_SUCCESS,
     PEN_JUDGE_DATA_ERROR,
     PEN_JUDGE_COMPILE_ERROR,
+    PEN_JUDGE_PERMISSION_ERROR,
     PEN_JUDGE_CODE_END,
 } ResultCode;
 
 extern const char *g_unix_domain;
 extern const char *g_local_host;
 extern unsigned short g_local_port;
-extern const char *workspace_judge;
+extern const char *judge_dir;
+extern const char *testcase_dir;
 
 PEN_WARN_UNUSED_RESULT
 PEN_NONNULL(1)
