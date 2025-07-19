@@ -25,6 +25,7 @@
 
 static const char *_profile = NULL;
 static bool running = true;
+pen_event_t ev;
 
 PEN_ALWAYS_INLINE
 static inline void
@@ -70,8 +71,6 @@ _on_signal(int id PEN_UNUSED)
 
 int main(int argc, char *argv[])
 {
-    pen_event_t ev;
-
     _init_options(argc, argv);
     if (!_init_profile())
         return 1;

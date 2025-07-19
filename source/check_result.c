@@ -15,36 +15,31 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "server.h"
-
-#include <pen_http/pen_http.h>
-
-static char *err_name[PEN_JUDGE_CODE_END] = {
-    "null",
-    "\"JudgeClientError\"",
-    "\"JudgeClientError\"",
-    "\"JudgeClientError\"",
-    "\"JudgeClientError\"",
-};
-
-static char *err_msg[PEN_JUDGE_CODE_END] = {
-    "success",
-    "Request wrong data.",
-    "Compile failed.",
-    "Permission error.",
-    "Internal error.",
-};
-
+#include "rules.h"
 
 bool
-do_judge_result(pen_event_base_t *eb, ResultCode code)
+check_result(int in_fd, int out_fd)
 {
-#define BUF_SIZE 128
-#define DATA "{\"err\":%s,\"data\":\"%s\"}"
-    static char buf[BUF_SIZE];
-    int len;
+    const size_t buffer_size = 4 * 1024;
+    unsigned char in_buf[buffer_size];
+    unsigned char out_buf[buffer_size];
+    struct stat in_st, out_st;
+    ssize_t len;
 
-    len = snprintf(buf, BUF_SIZE, DATA, err_name[code], err_msg[code]);
-    return pen_http_resp_string(eb, buf, len);
+    if (fstat(in_fd, &in_st) || fstat(out_fd, &out_st)) return false;
+    if (in_st.st_size != out_st.st_size) return false;
+    if (in_st.st_size == 0) return true;
+    lseek(in_fd, 0, SEEK_SET);
+    lseek(out_fd, 0, SEEK_SET);
+
+    do {
+        len = read(in_fd, in_buf, buffer_size);
+        if (len <= 0) return false;
+        len = read(out_fd, out_buf, buffer_size);
+        if (len <= 0) return false;
+        if (memcmp(in_buf, out_buf, len) != 0) return false;
+    } while(len == buffer_size);
+
+    return true;
 }
 

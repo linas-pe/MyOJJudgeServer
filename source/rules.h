@@ -15,36 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#pragma once
+
 #include "server.h"
 
-#include <pen_http/pen_http.h>
+PEN_EXTERN_C_START
 
-static char *err_name[PEN_JUDGE_CODE_END] = {
-    "null",
-    "\"JudgeClientError\"",
-    "\"JudgeClientError\"",
-    "\"JudgeClientError\"",
-    "\"JudgeClientError\"",
-};
+bool resource_limit(JudgeClient *jc);
+bool c_cpp_seccomp_rules();
+bool c_cpp_file_io_seccomp_rules();
+bool check_result(int in_fd, int out_fd);
 
-static char *err_msg[PEN_JUDGE_CODE_END] = {
-    "success",
-    "Request wrong data.",
-    "Compile failed.",
-    "Permission error.",
-    "Internal error.",
-};
-
-
-bool
-do_judge_result(pen_event_base_t *eb, ResultCode code)
-{
-#define BUF_SIZE 128
-#define DATA "{\"err\":%s,\"data\":\"%s\"}"
-    static char buf[BUF_SIZE];
-    int len;
-
-    len = snprintf(buf, BUF_SIZE, DATA, err_name[code], err_msg[code]);
-    return pen_http_resp_string(eb, buf, len);
-}
+PEN_EXTERN_C_END
 

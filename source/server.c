@@ -81,8 +81,9 @@ error:
 }
 
 bool
-pen_server_init(pen_event_t ev)
+pen_server_init()
 {
+    extern pen_event_t ev;
     srand(time(NULL));
     if (PEN_UNLIKELY(!init_judger()))
         return false;
