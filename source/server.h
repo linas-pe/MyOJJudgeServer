@@ -28,6 +28,10 @@ typedef enum ResultCode {
     PEN_JUDGE_COMPILE_ERROR,
     PEN_JUDGE_PERMISSION_ERROR,
     PEN_JUDGE_INTERNAL_ERROR,
+    PEN_JUDGE_TIME_LIMIT,
+    PEN_JUDGE_MEMORY_LIMIT,
+    PEN_JUDGE_RUN_ERROR,
+    PEN_JUDGE_RESULT_ERROR,
     PEN_JUDGE_CODE_END,
 } ResultCode;
 
@@ -35,6 +39,8 @@ typedef struct JudgeClient {
     pen_event_base_t pid_eb;
     char submission_id[37];
     char case_id[33];
+    int max_cpu_time;
+    int max_memory;
     int out;
     pid_t pid;
     pen_string_t src;

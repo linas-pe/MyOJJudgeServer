@@ -112,7 +112,7 @@ _on_compile_child_finish(pen_event_base_t *eb, uint16_t pe PEN_UNUSED)
         if (len > 0) {
             PEN_ERROR("on compile error: %.*s", len, buf);
         } else {
-            PEN_ERROR("on compile failed.");
+            PEN_ERROR("on compile failed. %d", WEXITSTATUS(status));
         }
     }
     close(eb->fd_);
@@ -122,32 +122,58 @@ _on_compile_child_finish(pen_event_base_t *eb, uint16_t pe PEN_UNUSED)
     // TODO read stdout
 }
 
-static bool
+static inline int
+_check_resource_usage(const JudgeClient *jc, const struct rusage *ru)
+{
+    int cpu_time = (int) (ru->ru_utime.tv_sec * 1E3 + ru->ru_utime.tv_usec / 1E3);
+    int memory = ru->ru_maxrss * 1024;
+
+    if (jc->max_memory < memory) return PEN_JUDGE_MEMORY_LIMIT;
+    if (jc->max_cpu_time < cpu_time) return PEN_JUDGE_TIME_LIMIT;
+    return PEN_JUDGE_SUCCESS;
+}
+
+static int
 _run_once(JudgeClient *jc, int in_fd, int out_fd)
 {
+    sigset_t mask;
+    struct timespec timeout = {
+        .tv_sec = jc->max_cpu_time / 1000,
+        .tv_nsec = jc->max_cpu_time % 1000 * 1E6,
+    };
     struct rusage resource_usage;
-    int status;
+    int status, sig;
+
     pid_t pid = fork();
-    if (pid == -1) return false;
+    if (pid == -1) return PEN_JUDGE_INTERNAL_ERROR;
     if (pid == 0) {
         dup2(in_fd, STDIN_FILENO); close(in_fd);
         dup2(out_fd, STDOUT_FILENO); close(out_fd);
         if (!resource_limit(jc))
-            return false;
+            return PEN_JUDGE_INTERNAL_ERROR;
         if (!c_cpp_file_io_seccomp_rules()) {
             PEN_ERROR("set seccomp failed.");
-            return false;
+            return PEN_JUDGE_INTERNAL_ERROR;
         }
         execl("./main", "./main", NULL);
         exit(-1);
     }
+
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
+    sig = sigtimedwait(&mask, NULL, &timeout);
+    if (sig != SIGCHLD) {
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, 0);
+        return PEN_JUDGE_TIME_LIMIT;
+    }
     wait4(pid, &status, 0, &resource_usage);
-    if (WEXITSTATUS(status) != 0) return false;
-    // TODO check resource
-    return true;
+    if (WEXITSTATUS(status) != 0) return PEN_JUDGE_RUN_ERROR;
+    return _check_resource_usage(jc, &resource_usage);
 }
 
-static bool
+static int
 _run(JudgeClient *jc)
 {
     extern int root_case_fd;
@@ -155,23 +181,25 @@ _run(JudgeClient *jc)
     char output[6] = "1.out";
     int in_fd, out_fd, result_fd;
     int case_dir_fd;
-    int i;
+    int i, err;
 
     case_dir_fd = openat(root_case_fd, jc->case_id, O_RDONLY | O_DIRECTORY);
     if (case_dir_fd == -1)
-        return false;
+        return PEN_JUDGE_INTERNAL_ERROR;
 
     for (i = 1; i < 10; i++) {
         in_fd = openat(case_dir_fd, input, O_RDONLY);
         if (in_fd == -1) break;
         out_fd = open(output, O_RDWR | O_CREAT, 0644);
-        if (out_fd == -1) return false;
-        if (!_run_once(jc, in_fd, out_fd)) return false;
+        if (out_fd == -1) return PEN_JUDGE_INTERNAL_ERROR;
+        err = _run_once(jc, in_fd, out_fd);
+        if (err != 0) return err;
 
         result_fd = openat(case_dir_fd, output, O_RDONLY);
-        if (result_fd == -1 || !check_result(result_fd, out_fd)) {
+        if (result_fd == -1) return PEN_JUDGE_INTERNAL_ERROR;
+        if (!check_result(result_fd, out_fd)) {
             fprintf(stderr, "check result failed at %d case.", i);
-            return false;
+            return PEN_JUDGE_RESULT_ERROR;
         }
 
         close(in_fd);
@@ -180,7 +208,7 @@ _run(JudgeClient *jc)
         input[0] ++;
         output[0] ++;
     }
-    return i > 1;
+    return i > 1 ? PEN_JUDGE_SUCCESS : PEN_JUDGE_INTERNAL_ERROR;
 }
 
 static int
@@ -190,27 +218,27 @@ _do_compile_c(JudgeClient *jc)
     int status;
 
     if (!_init_submission_env(jc))
-        return -1;
+        return PEN_JUDGE_INTERNAL_ERROR;
 
     if (chdir(judge_dir) != 0)
-        return -1;
+        return PEN_JUDGE_INTERNAL_ERROR;
     if (chdir(jc->submission_id) != 0)
-        return -1;
+        return PEN_JUDGE_INTERNAL_ERROR;
 
     // Compile
     pid = fork();
     if (pid == -1)
-        return -1;
+        return PEN_JUDGE_INTERNAL_ERROR;
     if (pid == 0) {
         execl("/usr/bin/gcc", "gcc", "main.c", "-O3", "-o", "main", NULL);
         exit(1);
     }
     waitpid(pid, &status, 0);
     if (WIFEXITED(status) && WEXITSTATUS(status))
-        return -1;
+        return PEN_JUDGE_COMPILE_ERROR;
 
     // Run
-    return _run(jc) ? 0 : 1;
+    return _run(jc);
 }
 
 bool

@@ -36,29 +36,33 @@ _on_json_data(const char *str, pen_json_pos_t key, pen_json_pos_t val, void *use
     const char *tmp = str + key->start_;
     size_t len = key->end_ - key->start_;
     JudgeClient *jc = user;
+    // TODO remove unused data
+    // ignore unused data
 
     switch (len) {
     case 3:
-        // TODO remove unused data
-        // ignore unused data
         if (0 != strncmp(tmp, "src", 3))
             return true;
         jc->src.str_ = str + val->start_;
         jc->src.len_ = val->end_ - val->start_;
         break;
+    case 10:
+        if (0 == strncmp(tmp, "max_memory", 10))
+            jc->max_memory = PEN_JSON_INT_VAL(val);
+        break;
     case 12:
-        // TODO remove unused data
-        // ignore unused data
-        if (0 != strncmp(tmp, "test_case_id", 12))
-            return true;
-        tmp = str + val->start_;
-        len = val->end_ - val->start_;
-        if (len >32 || len == 0) {
-            PEN_ERROR("case_id too long!!!");
-            return false;
+        if (0 == strncmp(tmp, "test_case_id", 12)) {
+            tmp = str + val->start_;
+            len = val->end_ - val->start_;
+            if (len >32 || len == 0) {
+                PEN_ERROR("case_id too long!!!");
+                return false;
+            }
+            memcpy(jc->case_id, tmp, len);
+            jc->case_id[len] = '\0';
+        } else if (0 == strncmp(tmp, "max_cpu_time", 12)) {
+            jc->max_cpu_time = PEN_JSON_INT_VAL(val);
         }
-        memcpy(jc->case_id, tmp, len);
-        jc->case_id[len] = '\0';
         break;
     }
 

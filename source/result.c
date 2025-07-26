@@ -25,6 +25,10 @@ static char *err_name[PEN_JUDGE_CODE_END] = {
     "\"JudgeClientError\"",
     "\"JudgeClientError\"",
     "\"JudgeClientError\"",
+    "\"TimeLimit\"",
+    "\"MemoryLimit\"",
+    "\"RunError\"",
+    "\"ResultError\"",
 };
 
 static char *err_msg[PEN_JUDGE_CODE_END] = {
@@ -33,6 +37,10 @@ static char *err_msg[PEN_JUDGE_CODE_END] = {
     "Compile failed.",
     "Permission error.",
     "Internal error.",
+    "Time limit.",
+    "Memory limit.",
+    "Run failed.",
+    "Check result failed.",
 };
 
 
